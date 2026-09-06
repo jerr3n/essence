@@ -1,0 +1,10 @@
+{
+  "name": "essence",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+        "$path": "src/server"
+    }
+  }
+}
