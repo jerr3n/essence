@@ -113,7 +113,7 @@ function Math.sqrt(n)
     local scratch = buffer.create(8)
     buffer.writef64(scratch, 0, n)
 	local i = buffer.readu32(scratch, 4)
-	buffer.writeu32(scratch, 4, 0x5FE6EB50 - bit32.rshift(i, 1)) -- what the fuck?
+	buffer.writeu32(scratch, 4, 0x5FE6EB50 - bit32.rshift(i, 1))
 	local y = buffer.readf64(scratch, 0)
 	return 1/(y * (1.5 - 0.5 * n * y * y))
 end
