@@ -7,7 +7,10 @@ Info
 $r$ stands for result.
 ]]
 local Math = {}
-
+local Vector = {}
+local Matrix = {}
+Math.Vector = Vector
+Math.Matrix = Matrix
 --[[
 $\pi$
 π
@@ -46,6 +49,9 @@ function Math.min(a, b)
     if a < b then
         return a
     end
+end
+function Math.clamp(n, a, b)
+    return Math.min(Math.max(n,a),b)
 end
 --[[
 $\lvert n \rvert = r$
@@ -101,6 +107,7 @@ end
 $\sqrt{n}=r$
 √n=r
 This is the only function where we do evil floating bit hacking. We promise.
+https://en.wikipedia.org/wiki/Fast_inverse_square_root#Overview_of_the_code
 ]]
 function Math.sqrt(n)
     local scratch = buffer.create(8)
@@ -152,5 +159,74 @@ function Math.sin(n)
 		return Math.pow(-1, j) * Math.pow(z, 2 * j + 1) / Math.factorial(2 * j + 1)
 	end)
 end
+--[[
+$\cos(\Theta)=\sin(\Theta+\frac{\pi}{2})$
+cos(Θ)=cos(Θ+(π/2))
+]]
+function Math.cos(n)
+    return Math.sin(n+Math.HalfPi)
+end
+--[[
+$\tan(\Theta)=\frac{\sin(\Theta)}{\cos(\Theta)}$
+tan(Θ)=(sin(Θ)/cos(Θ))
+]]
+function Math.tan(n)
+    return Math.sin(n)/Math.cos(n)
+end
+--[[
+$\csc(\Theta)=\frac{1}{\sin(\Theta)}$
+csc(Θ)=1/sin(Θ)
+]]
+function Math.csc(n)
+    return 1/Math.sin(n)
+end
+--[[
+$\cot(\Theta)=\frac{1}{\tan(\Theta)}$
+cot(Θ)=1/tan(Θ)
+]]
+function Math.cot(n)
+    return 1/Math.tan(n)
+end
 
+function Math.sign(n) 
+    if n == 0 then
+        return 0
+    end
+    if n > 0 then
+        return 1
+    end
+    return -1
+end
+
+function Vector.add(a, b)
+    return Vector3.new(a.X+b.X,a.Y+b.Y,a.Z+b.Z)
+end
+
+function Vector.subtract(a, b)
+    return Vector3.new(a.X-b.X,a.Y-b.Y,a.Z-b.Z)
+end
+
+function Vector.sMult(s, v)
+    return Vector3.new(s*v.X,s*v.Y,s*v.Z)
+end
+
+function Vector.sDiv(s, v)
+    return Vector3.new(v.X/s,v.Y/s,v.Z/s)
+end
+
+function Vector.dot(a, b)
+    return (a.X*b.X)+(a.Y*b.Y)+(a.Z*b.Z)
+end
+function Vector.magnitude(v)
+    return Math.sqrt((v.X^2)+(v.Y^2)+(v.Z^2))
+end
+function Vector.normalize(v)
+    return Vector.sDiv(v, Vector.magnitude(v))
+end
+function Vector.project(v, n)
+    return Vector.sMult(n, Vector.sMult(n, v)) 
+end
+function Vector.reject(v, n)
+    return Vector.subtract(v, Vector.project(v, n))
+end
 return Math
