@@ -223,9 +223,17 @@ end
 function Vector.normalize(v)
     return Vector.sDiv(v, Vector.magnitude(v))
 end
+--[[
+$\operatorname{proj}_n(v)=\frac{v \cdot n}{n \cdot n}n$
+proj_n(v)=((v·n)/(n·n))n
+]]
 function Vector.project(v, n)
-    return Vector.sMult(n, Vector.sMult(n, v)) 
+    return Vector.sMult(Vector.dot(v, n) / Vector.dot(n, n), n)
 end
+--[[
+$\operatorname{rej}_n(v)=v-\operatorname{proj}_n(v)$
+rej_n(v)=v-proj_n(v)
+]]
 function Vector.reject(v, n)
     return Vector.subtract(v, Vector.project(v, n))
 end
