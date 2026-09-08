@@ -324,7 +324,7 @@ function Math.atan(n)
 	return z
 end
 
-function Math.atan2(y: number, x: number): number
+function Math.atan2(y, x)
 	if Math.isNan(x) or Math.isNan(y) then
 		return x + y
 	end
@@ -381,7 +381,7 @@ function Math.atan2(y: number, x: number): number
 	local _, ex = Math.frexp(x)
 	local k = ey - ex
 
-	local z: number
+	local z
 	if k > 60 then
 		z = Math.HalfPi + 0.5 * Math.PiLo
 	elseif x<0 and k < -60 then
@@ -401,16 +401,32 @@ function Math.atan2(y: number, x: number): number
 	end
 end
 
+--[[
+$a \times b = r$
+a × b = r
+Returns a Vector3. This is the only function that builds a Roblox value, so it
+is the only function that Lune cannot run.
+https://en.wikipedia.org/wiki/Cross_product
+]]
 function Math.cross(a, b)
-    return {
-        ((a.Y*b.Z)-(a.Z*b.Y)),
-        ((a.Z*b.X)-(a.X*b.Z)),
-        ((a.X*b.Y)-(a.Y*b.X))
-    }
+	return Vector3.new(
+		(a.Y * b.Z) - (a.Z * b.Y),
+		(a.Z * b.X) - (a.X * b.Z),
+		(a.X * b.Y) - (a.Y * b.X)
+	)
 end
 
+--[[
+$n = m \times 2^{e}$
+n = m × 2ᵉ
+Returns the mantissa m and the exponent e, where 0.5 <= |m| < 1.
+Zero, NaN, and infinity return the input and an exponent of 0.
+https://en.wikipedia.org/wiki/C_mathematical_functions#frexp
+]]
 function Math.frexp(n)
-	if n == 0 or n ~= n or n == huge or n == -huge then
+	-- The guard tests Math.Inf, and not the local huge. huge is 2^66, which is
+	-- the argument reduction threshold of Math.atan, and a finite input here.
+	if n == 0 or n ~= n or n == Math.Inf or n == -Math.Inf then
 		return n, 0
 	end
 

@@ -93,6 +93,35 @@ end
 close(Math.atan(1e100), math.atan(1e100), 3e-16)
 close(Math.atan(-1e100), math.atan(-1e100), 3e-16)
 assert(Math.isNan(Math.atan(0 / 0)))
+for _, n in { 8, 0.25, 1, -3.5, 2 ^ 66, -2 ^ 66, 2 ^ 67, 5e-324, 1e-310 } do
+	local m, e = Math.frexp(n)
+	local rm, re = math.frexp(n)
+	assert(m == rm and e == re, `frexp({n}) returned {m}, {e} instead of {rm}, {re}`)
+end
+do
+	local m, e = Math.frexp(0)
+	assert(m == 0 and e == 0)
+	m, e = Math.frexp(math.huge)
+	assert(m == math.huge and e == 0)
+	m, e = Math.frexp(-math.huge)
+	assert(m == -math.huge and e == 0)
+	m, e = Math.frexp(0 / 0)
+	assert(Math.isNan(m) and e == 0)
+end
+
+close(Math.atan2(1, 1), Math.QuarterPi, 1e-15)
+close(Math.atan2(1, -1), 3 * Math.QuarterPi, 1e-15)
+close(Math.atan2(-1, -1), -3 * Math.QuarterPi, 1e-15)
+close(Math.atan2(-1, 1), -Math.QuarterPi, 1e-15)
+close(Math.atan2(3, 4), math.atan(3 / 4), 1e-15)
+close(Math.atan2(1, 0), Math.HalfPi, 0)
+close(Math.atan2(-1, 0), -Math.HalfPi, 0)
+close(Math.atan2(0, -1), Math.Pi, 0)
+close(Math.atan2(1, math.huge), 0, 0)
+close(Math.atan2(math.huge, 1), Math.HalfPi, 0)
+close(Math.atan2(math.huge, math.huge), Math.QuarterPi, 0)
+assert(Math.isNan(Math.atan2(0 / 0, 1)))
+
 assert(Math.sign(-10) == -1)
 assert(Math.sign(0) == 0)
 assert(Math.sign(10) == 1)

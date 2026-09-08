@@ -1,9 +1,7 @@
 # `math.luau`
 
 `math.luau` provides scalar math functions and `Vector3` operations. The module
-does not use Luau type annotations. `Math.atan2` is the one exception. The port
-of the C source kept its annotations, which the project rules in
-[CONTRIBUTING.md](../../../../CONTRIBUTING.md) do not permit.
+does not use Luau type annotations.
 
 ## Use
 
@@ -47,15 +45,10 @@ All trigonometric functions use radians.
 | `Math.lerp(a, b, t)` | Returns `a + t(b - a)`. The function does not limit `t` to the range from `0` through `1`. A value outside that range extrapolates. |
 | `Math.frexp(n)` | Splits `n` into a mantissa `m` and an exponent `e`, where `n = m × 2ᵉ` and `0.5 ≤ |m| < 1`. It returns the two values in that order. See the limits below. |
 
-`Math.frexp` returns `0, 0` for zero, and `NaN, 0` for NaN. It handles normal
-and subnormal values correctly. It returns the wrong result for two groups of
-inputs:
-
-- `±inf` returns `NaN, inf`. The C function returns the input and `0`.
-- `±2⁶⁶` exactly returns the input and `0`. The correct result is `±0.5, 67`.
-
-`Math.atan2` guards against infinity before it calls `Math.frexp`, so these
-limits do not affect `Math.atan2`.
+`Math.frexp` gives the same result as the C function of the same name. Zero,
+NaN, and `±inf` return the input and an exponent of `0`. Normal and subnormal
+values return an exact mantissa and exponent. The tests compare it against
+`math.frexp` for each of these groups.
 
 ### Numerical functions
 
@@ -139,14 +132,17 @@ The `Math.Vector` table operates on Roblox `Vector3` values.
 | `Math.Vector.project(v, n)` | Projects `v` onto `n`. The function reports an error when `n` is the zero vector. |
 | `Math.Vector.reject(v, n)` | Removes the component of `v` that is parallel to `n`. The function reports an error when `n` is the zero vector. |
 
-`Math.cross(a, b)` returns the cross product. It is on the `Math` table, and not
-on the `Math.Vector` table. It also returns an array of three numbers, and not a
-`Vector3`:
+`Math.cross(a, b)` returns the cross product as a `Vector3`. It is on the `Math`
+table, and not on the `Math.Vector` table:
 
 ```luau
-local n = Math.cross(Vector3.xAxis, Vector3.yAxis)
-print(n[1], n[2], n[3]) --> 0 0 1
+local n = Math.cross(Vector3.xAxis, Vector3.yAxis) --> 0, 0, 1
 ```
+
+`Math.cross` calls `Vector3.new`. It is the only function in the module that
+builds a Roblox value, so it is the only function that Lune cannot run. The
+other functions read the `X`, `Y`, and `Z` fields, which lets the tests use a
+plain table.
 
 The module reserves `Math.Matrix` for matrix operations. It does not contain
 functions in this version.
