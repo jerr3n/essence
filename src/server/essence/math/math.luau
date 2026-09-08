@@ -11,24 +11,6 @@ local Vector = {}
 local Matrix = {}
 Math.Vector = Vector
 Math.Matrix = Matrix
-
---[[
-$\sqrt{n}=r$
-√n=r
-This is the only function where we do evil floating bit hacking. We promise.
-https://en.wikipedia.org/wiki/Fast_inverse_square_root#Overview_of_the_code
-]]
-function Math.sqrt(n)
-    local scratch = buffer.create(8)
-    buffer.writef64(scratch, 0, n)
-	local i = buffer.readu32(scratch, 4)
-	buffer.writeu32(scratch, 4, 0x5FE6EB50 - bit32.rshift(i, 1))
-	local y = buffer.readf64(scratch, 0)
-	return 1/(y * (1.5 - 0.5 * n * y * y))
-end
-
---- Constants
-
 --[[
 $\pi$
 π
@@ -40,28 +22,45 @@ $\tau$
 τ
 ibid.
 ]]
-Math.Tau = 2*Math.Pi
+Math.Tau = 6.283185307179586
 --[[
 $\frac{\pi}{2}$
 π/2
 ]]
-Math.HalfPi = 0.5*Math.Pi
---[[
-$\frac{\pi}{4}$
-π/4
-]]
-Math.QuarterPi = 0.5*Math.HalfPi
+Math.HalfPi = 1.5707963267948966
 --[[
 $\frac{1}{\tau}$
 1/τ
 ]]
-Math.InverseTau = 1/Math.Tau
---[[
-$\sqrt{3}$
-√3
-]]
-Math.RootThree = Math.sqrt(3)
----
+Math.InverseTau = 0.15915494309189535
+const atanhi = {
+    4.63647609000806093515e-01,
+    7.85398163397448278999e-01,
+    9.82793723247329054082e-01,
+    1.57079632679489655800e+00
+}
+
+const atanlo = {
+  2.26987774529616870924e-17,  
+  3.06161699786838301793e-17,   
+  1.39033110312309984516e-17,  
+  6.12323399573676603587e-17,   
+}
+
+const aT = {
+  3.33333333333329318027e-01, 
+ -1.99999999998764832476e-01,
+  1.42857142725034663711e-01,
+ -1.11111104054623557880e-01,
+  9.09088713343650656196e-02,
+ -7.69187620504482999495e-02,
+  6.66107313738753120669e-02,
+ -5.83357013379057348645e-02,
+  4.97687799461593236017e-02,
+ -3.65315727442169155270e-02,
+  1.62858201153657823623e-02,
+}
+--
 function Math.max(a, b)
     if a > b then
         return a 
@@ -79,7 +78,6 @@ function Math.min(a, b)
         return a
     end
     return a
-
 end
 function Math.clamp(n, a, b)
     return Math.min(Math.max(n,a),b)
@@ -135,6 +133,20 @@ function Math.derive(f, n)
     return ((f(n+h)-f(n-h))/(2*h))
 end
 --[[
+$\sqrt{n}=r$
+√n=r
+This is the only function where we do evil floating bit hacking. We promise.
+https://en.wikipedia.org/wiki/Fast_inverse_square_root#Overview_of_the_code
+]]
+function Math.sqrt(n)
+    local scratch = buffer.create(8)
+    buffer.writef64(scratch, 0, n)
+	local i = buffer.readu32(scratch, 4)
+	buffer.writeu32(scratch, 4, 0x5FE6EB50 - bit32.rshift(i, 1))
+	local y = buffer.readf64(scratch, 0)
+	return 1/(y * (1.5 - 0.5 * n * y * y))
+end
+--[[
 $\sum_{i=a}^{b} f(i) = r$
 ᵢ₌ₐΣᵇ f(i) = r
 ]]
@@ -153,19 +165,6 @@ function Math.product(a, b, f)
 	local r = 1
 	for i = a, b do
 		r *= f(i)
-	end
-	return r
-end
---[[
-$\sum_{i=0}^{N} c_{i}n^{i} = r$
-ᵢ₌₀Σᴺ cᵢnⁱ = r
-Horner's method: c₀+n(c₁+n(c₂+⋯)). c ascends, so c[1] is the constant term.
-https://en.wikipedia.org/wiki/Horner%27s_method
-]]
-function Math.horner(n, c)
-	local r = c[#c]
-	for i = #c - 1, 1, -1 do
-		r = c[i] + n*r
 	end
 	return r
 end
@@ -217,88 +216,57 @@ cot(Θ)=1/tan(Θ)
 function Math.cot(n)
     return 1/Math.tan(n)
 end
---[[
-Coefficients for atan's Gregory series on |n| ≤ 0.4375: aT[i] = (-1)ⁱ/(2i+3),
-where aT[i] multiplies z^(i+1). They are split into the even- and odd-indexed
-halves so that each is a polynomial in w = z², which is how the sum is evaluated
-below. 20 terms is the floor for 1 ulp — 17 gives 22 ulp, 14 gives 3654.
-fdlibm reaches the same accuracy in 11 terms, but only by using fitted minimax
-coefficients, which have no closed form and so cannot be built at runtime.
-]]
-local AtanEven, AtanOdd = {}, {}
-for i = 0, 19 do
-    if i % 2 == 0 then
-        table.insert(AtanEven, Math.pow(-1, i)/(2*i + 3))
-    else
-        table.insert(AtanOdd, Math.pow(-1, i)/(2*i + 3))
+
+function Math.isNan(n)
+    if n ~= n then
+        return true
     end
+    return false
 end
---[[
-$\arctan(n)=r$ for $\lvert n \rvert \leq \frac{7}{16}$
-arctan(n)=r for |n|≤7/16
-The series evaluated directly, with no argument reduction. Subtracting from n
-before anything larger is added is what keeps the whole function under 1 ulp:
-the two nearly equal terms cancel first.
-]]
-local function atanCore(n)
-    local z = n*n
-    local w = z*z
-    return n - n*(z*Math.horner(w, AtanEven) + w*Math.horner(w, AtanOdd))
-end
---[[
-Reduction endpoints: arctan of 1/2, 1, 3/2, ∞. atan's addition formula,
-$\arctan(a)+\arctan(b)=\arctan(\frac{a+b}{1-ab})$, reaches the first and
-third from arguments below 7/16:
-    arctan(1/2) = arctan(1/3) + arctan(1/7)
-    arctan(3/2) = arctan(1)   + arctan(1/5)
-Those arguments are served by atanCore, which never consults this table, so
-there is no circularity. Both land on the correctly rounded double.
-]]
-local AtanHi = {
-    atanCore(1/3) + atanCore(1/7),
-    Math.QuarterPi,
-    Math.QuarterPi + atanCore(1/5),
-    Math.HalfPi,
-}
---[[
-$\arctan(n)=r$
-arctan(n)=r
-Accurate to 1 ulp over all finite n, measured against a correctly rounded
-reference. n is reduced onto [0,7/16] by atan's addition formula, then the
-series is summed there. The interval scheme and its breakpoints follow fdlibm's
-s_atan.c; its minimax coefficients are not used here.
-https://svnweb.freebsd.org/base/head/lib/msun/src/s_atan.c?view=markup
-]]
+
+const huge = 2^66
+const tiny = 2^-26
+
 function Math.atan(n)
+    local an = Math.abs(n)
+    local id
+    local t
+
     if Math.isNan(n) then
         return n
     end
-
-    local x = Math.abs(n)
-    local id
-    if x >= 2^66 then
-        -- -1/n underflows past here, so the reduction is exactly arctan(∞).
-        return Math.sign(n)*Math.HalfPi
-    elseif x < 0.4375 then
-        if x < 2^-27 then
-            return n -- arctan(n) rounds to n
+    if an >= huge then
+        local r = atanhi[4]+atanlo[4]
+        if n<0 then return -r else return r end
+    end
+    if an < 0.4375 then
+        if an < tiny then
+            if huge + n > 1 then
+                return n
+            end
         end
-        return atanCore(n) -- the signed value is used directly
-    elseif x < 0.6875 then
-        id, x = 1, (2*x - 1)/(2 + x)
-    elseif x < 1.1875 then
-        id, x = 2, (x - 1)/(x + 1)
-    elseif x < 2.4375 then
-        id, x = 3, (x - 1.5)/(1 + 1.5*x)
-    else
-        id, x = 4, -1/x
+        id = -1
+    elseif an < 0.6875 then          -- 11/16, centre 0.5
+		id, t = 1, (2 * an - 1) / (2 + an)
+	elseif an < 1.1875 then          -- 19/16, centre 1.0
+		id, t = 2, (an - 1) / (an + 1)
+	elseif an < 2.4375 then          -- 39/16, centre 1.5
+		id, t = 3, (an - 1.5) / (1 + 1.5 * an)
+	else                             -- centre infinity: atan(x) = pi/2 - atan(1/x)
+		id, t = 4, -1 / an
+	end
+    local z = t*t
+    local w = z*z
+    local s1 = z * (aT[0] + w * (aT[2] + w * (aT[4] + w * (aT[6] + w * (aT[8] + w * aT[10])))));
+    local s2 = w * (aT[1] + w * (aT[3] + w * (aT[5] + w * (aT[7] + w * aT[9]))));
+    if (id < 0) then 
+        return t - t * (s1 + s2) 
     end
-
-    local r = AtanHi[id] + atanCore(x)
+    z = atanhi[id+1] - ((t * (s1 + s2) - atanlo[id]) - t) 
     if n < 0 then
-        return -r
+        return -z
     end
-    return r
+    return z
 end
 
 function Math.sign(n) 
@@ -310,10 +278,8 @@ function Math.sign(n)
     end
     return -1
 end
-function Math.isNan(n)
-    return n ~= n
-end
 
+-- Vector
 function Vector.add(a, b)
     return Vector3.new(a.X+b.X,a.Y+b.Y,a.Z+b.Z)
 end
