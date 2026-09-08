@@ -3,7 +3,7 @@
 ## Styleguide
 
 ### Functions
-Functions should usually have this shape:
+Use this shape for most functions:
 
 ```luau
 --[[
@@ -18,31 +18,34 @@ function Math.example(n)
 end
 ```
 
-Part A is LaTeX, it renders as inline math in documentation and editor hovers.
+Part A is LaTeX. It renders as inline math in documentation and in editor hovers.
 
-Part B is the same expression in Unicode, readable as-is in a plain editor.
+Part B is the same expression in Unicode. It is readable as-is in a plain editor.
 
 Part C is an **optional** prose comment.
 
-Part D is a reference link, see below.
+Part D is a reference link. See the rules below.
 
 Omit A and B when the function has no conventional notation.
 
-- `r` denotes the result. A single argument is named `n`. Constants are
-  PascalCase (`Math.HalfPi`); functions are lowercase (`Math.sin`).
-- If a function is approximate, part C must state its error bound and valid
+- Use `r` for the result. Name a single argument `n`. Write constants in
+  PascalCase (`Math.HalfPi`). Write functions in lowercase (`Math.sin`).
+- If a function is approximate, part C must state its error bound and its valid
   domain.
-- If you implement an obscure method, link a reference in part D — Wikipedia
-  where a suitable article exists, otherwise whatever actually explains it.
-  See `Math.sin`.
-- Don't comment what the code already says. Do comment why a non-obvious
-  choice was made: a magic constant's origin, why one formulation was picked
-  over an equivalent-looking one, a numerical hazard being avoided.
+- If you implement an obscure method, link a reference in part D. Use Wikipedia
+  where a suitable article exists. Otherwise use whatever actually explains the
+  method. See `Math.sin`.
+- Do not comment what the code already says. Do comment why you made a
+  non-obvious choice. For example: where a magic constant comes from, why you
+  chose one formulation over an equivalent-looking one, or which numerical
+  hazard you avoid.
 
-The aligned `- part x` labels in the example are worth keeping — they make the four slots visually obvious at a glance, which is the whole point of a template.
+Keep the aligned `- part x` labels in the example. They make the four slots easy
+to see at a glance. That is the point of a template.
 
 ### Code
 
-Keep variables to a minimum. It is preferred that you calculate most variables at runtime, and use as least amount of static inline variables as possible. A helper program is okay, but not preferred.
+Keep variables to a minimum. Calculate most values at runtime. Use as few static
+inline values as you can. A helper program is acceptable, but not preferred.
 
-Do not use typing. Do not type your functions, do not do anything of the sort. It is forbidden.
+Do not use typing. Do not add types to your functions. Types are forbidden.
