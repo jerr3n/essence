@@ -2,6 +2,7 @@
 
 ## Styleguide
 
+### Functions
 Functions should usually have this shape:
 
 ```luau
@@ -39,3 +40,9 @@ Omit A and B when the function has no conventional notation.
   over an equivalent-looking one, a numerical hazard being avoided.
 
 The aligned `- part x` labels in the example are worth keeping — they make the four slots visually obvious at a glance, which is the whole point of a template.
+
+### Code
+
+Keep variables to a minimum. It is preferred that you calculate most variables at runtime, and use as least amount of static inline variables as possible. A helper program is okay, but not preferred.
+
+Do not use typing. Do not type your functions, do not do anything of the sort. It is forbidden.
