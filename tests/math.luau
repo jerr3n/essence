@@ -1,4 +1,4 @@
-local Math = require("../src/server/essence/math/math")
+local Math = require("../src/shared/essence/math/math")
 
 local vectorMeta = {}
 

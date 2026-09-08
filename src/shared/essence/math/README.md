@@ -1,13 +1,15 @@
 # `math.luau`
 
 `math.luau` provides scalar math functions and `Vector3` operations. The module
-does not use Luau type annotations.
+does not use Luau type annotations. `Math.atan2` is the one exception. The port
+of the C source kept its annotations, which the project rules in
+[CONTRIBUTING.md](../../../../CONTRIBUTING.md) do not permit.
 
 ## Use
 
 ```luau
-local ServerScriptService = game:GetService("ServerScriptService")
-local Math = require(ServerScriptService.essence.math.math)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Math = require(ReplicatedStorage.essence.math.math)
 
 local root = Math.sqrt(9)
 local direction = Math.Vector.normalize(Vector3.new(3, 0, 4))
@@ -22,7 +24,10 @@ All trigonometric functions use radians.
 | `Math.Pi` | `3.141592653589793` | The ratio of a circle's circumference to its diameter. |
 | `Math.Tau` | `6.283185307179586` | One full turn in radians. This value equals `2π`. |
 | `Math.HalfPi` | `1.5707963267948966` | One quarter-turn in radians. This value equals `π/2`. |
+| `Math.QuarterPi` | `0.7853981633974483` | One eighth-turn in radians. This value equals `π/4`. |
 | `Math.InverseTau` | `0.15915494309189535` | The reciprocal of `τ`. |
+| `Math.PiLo` | `1.2246467991473532e-16` | The part of `π` that `Math.Pi` cannot hold. `Math.atan2` uses it to keep accuracy near the negative `x` axis. |
+| `Math.Inf` | `inf` | Positive infinity. |
 
 ## Scalar functions
 
@@ -39,6 +44,18 @@ All trigonometric functions use radians.
 | `Math.product(a, b, f)` | Returns the product of `f(i)` for `i` from `a` through `b`, with unit steps. An empty range returns `1`. |
 | `Math.floor(n)` | Returns the largest integer that is not greater than `n`. It preserves positive and negative infinity. |
 | `Math.sign(n)` | Returns `-1`, `0`, or `1` for a negative, zero, or positive input. It returns NaN for NaN. |
+| `Math.lerp(a, b, t)` | Returns `a + t(b - a)`. The function does not limit `t` to the range from `0` through `1`. A value outside that range extrapolates. |
+| `Math.frexp(n)` | Splits `n` into a mantissa `m` and an exponent `e`, where `n = m × 2ᵉ` and `0.5 ≤ |m| < 1`. It returns the two values in that order. See the limits below. |
+
+`Math.frexp` returns `0, 0` for zero, and `NaN, 0` for NaN. It handles normal
+and subnormal values correctly. It returns the wrong result for two groups of
+inputs:
+
+- `±inf` returns `NaN, inf`. The C function returns the input and `0`.
+- `±2⁶⁶` exactly returns the input and `0`. The correct result is `±0.5, 67`.
+
+`Math.atan2` guards against infinity before it calls `Math.frexp`, so these
+limits do not affect `Math.atan2`.
 
 ### Numerical functions
 
@@ -74,9 +91,36 @@ The maximum relative error is `2×10⁻¹⁵` for a positive, finite input.
 | `Math.csc(n)` | Returns `1 / sin(n)`. The error has no finite uniform limit near a pole. |
 | `Math.cot(n)` | Returns `1 / tan(n)`. The error has no finite uniform limit near a pole. |
 | `Math.atan(n)` | Returns the arctangent of `n`. The maximum absolute error is `3×10⁻¹⁶` radians for a finite IEEE-754 double. |
+| `Math.atan2(y, x)` | Returns the angle of the point `(x, y)` from the positive `x` axis. See the table of special cases below. |
 
 Range reduction in `sin` and `cos` causes more floating-point error as the
 input magnitude increases.
+
+#### `Math.atan2(y, x)`
+
+The result is in the range from `-π` through `π`. The signs of both arguments
+select the quadrant, so `Math.atan2` gives the correct angle where
+`Math.atan(y / x)` cannot. The `y` argument comes first, as it does in C.
+
+```luau
+local angle = Math.atan2(1, -1) --> 2.356..., which is 3π/4
+```
+
+`Math.atan2` handles these special cases:
+
+| Case | Result |
+|---|---|
+| `x` or `y` is NaN | NaN |
+| `y = 0`, `x > 0` | `y`, which keeps the sign of the zero |
+| `y = 0`, `x < 0` | `π`. C returns `-π` for a negative zero. This module returns `π` for both signs of zero. |
+| `x = 0`, `y ≠ 0` | `π/2` for `y > 0`, `-π/2` for `y < 0` |
+| both arguments infinite | `±π/4` or `±3π/4`, by quadrant |
+| `x` infinite, `y` finite | `0` or `±π`, by the sign of `x` and `y` |
+| `y` infinite, `x` finite | `±π/2`, by the sign of `y` |
+
+The implementation follows fdlibm `e_atan2.c`. It calls `Math.atan` for the
+general case, so it has the error bound of `Math.atan` plus the error of the
+division `y / x`.
 
 ## Vector functions
 
@@ -90,9 +134,19 @@ The `Math.Vector` table operates on Roblox `Vector3` values.
 | `Math.Vector.sDiv(s, v)` | Divides vector `v` by scalar `s`. The scalar is the first argument. |
 | `Math.Vector.dot(a, b)` | Returns the dot product of `a` and `b`. |
 | `Math.Vector.magnitude(v)` | Returns the magnitude of `v`. |
+| `Math.Vector.sqmagnitude(v)` | Returns the square of the magnitude of `v`. Use it to compare lengths, because it does not call `Math.sqrt`. |
 | `Math.Vector.normalize(v)` | Returns a unit vector in the direction of `v`. The function reports an error for the zero vector. |
 | `Math.Vector.project(v, n)` | Projects `v` onto `n`. The function reports an error when `n` is the zero vector. |
 | `Math.Vector.reject(v, n)` | Removes the component of `v` that is parallel to `n`. The function reports an error when `n` is the zero vector. |
+
+`Math.cross(a, b)` returns the cross product. It is on the `Math` table, and not
+on the `Math.Vector` table. It also returns an array of three numbers, and not a
+`Vector3`:
+
+```luau
+local n = Math.cross(Vector3.xAxis, Vector3.yAxis)
+print(n[1], n[2], n[3]) --> 0 0 1
+```
 
 The module reserves `Math.Matrix` for matrix operations. It does not contain
 functions in this version.

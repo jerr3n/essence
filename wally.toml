@@ -1,6 +1,6 @@
 [package]
 name = "jerr3n/essence"
-version = "0.0.2"
+version = "0.0.3"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "server"
 
