@@ -5,6 +5,12 @@
 
     "ReplicatedStorage": {
         "$path": "src/shared"
+    },
+
+    "ServerStorage": {
+      "benchmarks": {
+        "$path": "benchmarks"
+      }
     }
   }
 }

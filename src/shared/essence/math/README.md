@@ -189,6 +189,12 @@ Run the math tests from the repository root:
 lune run tests/math.luau
 ```
 
+## Benchmark
+
+`benchmarks/` holds [Benchmarkr](https://github.com/jerr3n/benchmarkr) suites
+for this module. They compare each function against the Luau builtin that does
+the same work. `benchmarks/README.md` tells you how to run them.
+
 ## Styleguide
 
 ### Functions

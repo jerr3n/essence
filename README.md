@@ -59,6 +59,7 @@ src/shared/essence/     library source
     bin/bin.luau        bit-level number tools
     math/math.luau      math module
 tests/                  test scripts, one file per module
+benchmarks/             Benchmarkr suites, one file per operation
 default.project.json    Rojo project file
 wally.toml              Wally package file
 ```
@@ -87,6 +88,13 @@ lune run tests/math.luau
 ```
 
 Each test file prints one line when every assertion passes.
+
+## Benchmark
+
+The `benchmarks/` folder holds suites for
+[Benchmarkr](https://github.com/jerr3n/benchmarkr), a Roblox Studio plugin.
+They compare each Essence function against the Luau builtin that does the same
+work. See the [benchmarks README](benchmarks/README.md).
 
 ## Contribute
 
