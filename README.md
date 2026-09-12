@@ -26,7 +26,7 @@ Add Essence to the `[dependencies]` section of your `wally.toml`:
 
 ```toml
 [dependencies]
-Essence = "jerr3n/essence@0.0.3"
+Essence = "jerr3n/essence@0.0.4"
 ```
 
 Then run `wally install`.

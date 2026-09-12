@@ -38,6 +38,12 @@ assert(Math.clamp(4, 1, 3) == 3)
 assert(not pcall(Math.clamp, 1, 3, 2))
 assert(Math.abs(-4) == 4)
 assert(Math.isNan(0 / 0))
+assert(Math.isInf(math.huge))
+assert(Math.isInf(-math.huge))
+assert(not Math.isInf(0))
+assert(not Math.isInf(0 / 0))
+assert(Math.isNan(Math.NaN))
+assert(Math.Sqrt2 == math.sqrt(2))
 close(Math.pow(4, -0.5), 0.5, 1e-15)
 assert(Math.factorial(0) == 1)
 assert(Math.factorial(5) == 120)
@@ -73,12 +79,15 @@ close(
 	1e-9
 )
 
-for _, n in { 5e-324, 1e-300, 0.25, 0.5, 1, 2, 4, 9, 1e300 } do
+for _, n in { 5e-324, 1e-300, 0.25, 0.5, 1, 2, 4, 9, 1e300, 2 ^ 1023, 1.7976931348623157e308 } do
 	close(Math.sqrt(n), math.sqrt(n), math.sqrt(n) * 2e-15)
 end
 assert(Math.sqrt(0) == 0)
+assert(1 / Math.sqrt(-0) == -math.huge)
 assert(Math.sqrt(math.huge) == math.huge)
 assert(Math.isNan(Math.sqrt(-1)))
+assert(Math.isNan(Math.sqrt(-math.huge)))
+assert(Math.isNan(Math.sqrt(0 / 0)))
 
 assert(Math.floor(1.9) == 1)
 assert(Math.floor(-1.2) == -2)
@@ -93,7 +102,13 @@ end
 close(Math.atan(1e100), math.atan(1e100), 3e-16)
 close(Math.atan(-1e100), math.atan(-1e100), 3e-16)
 assert(Math.isNan(Math.atan(0 / 0)))
-for _, n in { 8, 0.25, 1, -3.5, 2 ^ 66, -2 ^ 66, 2 ^ 67, 5e-324, 1e-310 } do
+local frexpInputs = { 8, 0.25, 1, -3.5, 2 ^ 66, -2 ^ 66, 2 ^ 67, 5e-324, 1e-310 }
+-- 2^1023 and above made the loop that normalizes the mantissa run forever.
+table.insert(frexpInputs, 2 ^ 1023)
+table.insert(frexpInputs, -2 ^ 1023)
+table.insert(frexpInputs, 1.7976931348623157e308)
+table.insert(frexpInputs, 1.5e308)
+for _, n in frexpInputs do
 	local m, e = Math.frexp(n)
 	local rm, re = math.frexp(n)
 	assert(m == rm and e == re, `frexp({n}) returned {m}, {e} instead of {rm}, {re}`)
@@ -121,6 +136,48 @@ close(Math.atan2(1, math.huge), 0, 0)
 close(Math.atan2(math.huge, 1), Math.HalfPi, 0)
 close(Math.atan2(math.huge, math.huge), Math.QuarterPi, 0)
 assert(Math.isNan(Math.atan2(0 / 0, 1)))
+
+for _, n in { 5e-324, 1e-300, 0.25, 0.5, 1, 2, math.exp(1), 10, 1e300, 1.7976931348623157e308 } do
+	close(Math.log(n), math.log(n), math.abs(math.log(n)) * 3e-16)
+end
+assert(Math.log(1) == 0)
+assert(Math.log(0) == -math.huge)
+assert(Math.log(math.huge) == math.huge)
+assert(Math.isNan(Math.log(-1)))
+assert(Math.isNan(Math.log(-math.huge)))
+assert(Math.isNan(Math.log(0 / 0)))
+
+-- log1p keeps the low bits that log(1 + n) rounds away.
+for _, n in { 1e-17, -1e-17, 1e-9, -1e-9, 1e-5, 0.25, -0.25, 0.5, -0.5, 3, 1e300 } do
+	local reference = if math.abs(n) < 1e-4 then n - n ^ 2 / 2 + n ^ 3 / 3 - n ^ 4 / 4 else math.log(1 + n)
+	close(Math.log1p(n), reference, math.abs(reference) * 3e-16)
+end
+assert(Math.log1p(0) == 0)
+assert(1 / Math.log1p(-0) == -math.huge)
+assert(Math.log1p(5e-324) == 5e-324)
+assert(Math.log1p(-1) == -math.huge)
+assert(Math.log1p(math.huge) == math.huge)
+assert(Math.isNan(Math.log1p(-2)))
+assert(Math.isNan(Math.log1p(-math.huge)))
+assert(Math.isNan(Math.log1p(0 / 0)))
+
+for _, n in { 1e-17, -1e-17, 1e-9, 1e-5, 0.25, -0.25, 0.5, -0.5, 0.9, -0.9, 0.999999 } do
+	local reference = if math.abs(n) < 1e-4 then n + n ^ 3 / 3 else 0.5 * math.log((1 + n) / (1 - n))
+	close(Math.atanh(n), reference, math.abs(reference) * 3e-16)
+end
+close(Math.atanh(0.5), 0.5493061443340549, 2e-16)
+close(Math.atanh(-0.9), -1.4722194895832204, 1e-15)
+assert(Math.atanh(0) == 0)
+assert(1 / Math.atanh(-0) == -math.huge)
+assert(Math.atanh(5e-324) == 5e-324)
+assert(Math.atanh(1) == math.huge)
+assert(Math.atanh(-1) == -math.huge)
+assert(Math.isNan(Math.atanh(2)))
+assert(Math.isNan(Math.atanh(math.huge)))
+assert(Math.isNan(Math.atanh(0 / 0)))
+
+close(Math.lerp(2, 4, 0.5), 3, 0)
+close(Math.lerp(2, 4, 2), 6, 0)
 
 assert(Math.sign(-10) == -1)
 assert(Math.sign(0) == 0)

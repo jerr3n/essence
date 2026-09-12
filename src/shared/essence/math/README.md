@@ -26,6 +26,8 @@ All trigonometric functions use radians.
 | `Math.InverseTau` | `0.15915494309189535` | The reciprocal of `τ`. |
 | `Math.PiLo` | `1.2246467991473532e-16` | The part of `π` that `Math.Pi` cannot hold. `Math.atan2` uses it to keep accuracy near the negative `x` axis. |
 | `Math.Inf` | `inf` | Positive infinity. |
+| `Math.NaN` | `nan` | A value that is not equal to itself. Use `Math.isNan` to test for it. |
+| `Math.Sqrt2` | `1.4142135623730951` | The square root of `2`. `Math.log` uses it to center the mantissa. |
 
 ## Scalar functions
 
@@ -36,6 +38,7 @@ All trigonometric functions use radians.
 | `Math.clamp(n, a, b)` | Limits `n` to the inclusive range from `a` through `b`. The function reports an error when `a > b`. |
 | `Math.abs(n)` | Returns the absolute value of `n`. |
 | `Math.isNan(n)` | Returns `true` only when `n` is NaN. |
+| `Math.isInf(n)` | Returns `true` only when `n` is `inf` or `-inf`. |
 | `Math.pow(x, n)` | Returns `x ^ n`. It supports negative and fractional exponents. |
 | `Math.factorial(n)` | Returns `n!`. The input must be a non-negative integer. |
 | `Math.sum(a, b, f)` | Returns the sum of `f(i)` for `i` from `a` through `b`, with unit steps. An empty range returns `0`. |
@@ -73,6 +76,37 @@ Floating-point roundoff is not part of this limit.
 `Math.sqrt(n)` supports every non-negative IEEE-754 double, including
 subnormal values and positive infinity. It returns NaN for a negative input.
 The maximum relative error is `2×10⁻¹⁵` for a positive, finite input.
+
+`Math.sqrt` splits the input with `Math.frexp` and makes the exponent even. It
+then refines a quadratic estimate of `1/√m` with Newton's method.
+`calculate-constants.py` calculates the three coefficients of that estimate.
+
+### Logarithms
+
+| Function | Description |
+|---|---|
+| `Math.log(n)` | Returns the natural logarithm of `n`. The maximum relative error is `3×10⁻¹⁶` for a positive, finite input. |
+| `Math.log1p(n)` | Returns `ln(1 + n)`. The maximum relative error is `3×10⁻¹⁶` for `n > -1`. |
+
+`Math.log` returns `-inf` for `0`, and NaN for a negative input. It follows
+fdlibm `e_log.c`.
+
+Use `Math.log1p(n)` and not `Math.log(1 + n)` for a small `n`. The addition
+`1 + n` rounds away the low bits of `n`. The logarithm cannot put them back.
+`Math.log1p(1e-17)` is `1e-17`, but
+`Math.log(1 + 1e-17)` is `0`.
+
+### Hyperbolic functions
+
+`Math.atanh(n)` returns the inverse hyperbolic tangent of `n`:
+
+```text
+artanh(n) = ½ln((1+n)/(1-n))
+```
+
+The maximum relative error is `3×10⁻¹⁶` for `|n| < 1`. The function returns
+`±inf` for `n = ±1`, and NaN for `|n| > 1`. It calls `Math.log1p`, because the
+direct quotient loses the low bits of a small `n`.
 
 ### Trigonometric functions
 

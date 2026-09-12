@@ -39,6 +39,15 @@ $\frac{1}{\tau}$
 ]]
 Math.InverseTau = 0.15915494309189535
 Math.PiLo = 1.2246467991473531772e-16
+--[[
+A value that is not equal to itself. Use Math.isNan to test for it.
+]]
+Math.NaN = 0 / 0
+--[[
+$\sqrt{2}$
+√2
+]]
+Math.Sqrt2 = 1.4142135623730951
 
 local atanhi = {
 	4.63647609000806093515e-01,
@@ -113,6 +122,13 @@ function Math.isNan(n)
 end
 
 --[[
+Returns true when n is positive or negative infinity.
+]]
+function Math.isInf(n)
+	return n == Math.Inf or n == -Math.Inf
+end
+
+--[[
 $x^{n} = r$
 xⁿ=r
 ]]
@@ -162,31 +178,42 @@ $\sqrt{n}=r$
 √n=r
 The relative error is at most 2×10⁻¹⁵ for positive, finite IEEE-754 doubles.
 The function returns NaN for n<0. It supports zero, infinity, and subnormal values.
-https://en.wikipedia.org/wiki/Fast_inverse_square_root#Overview_of_the_code
+https://en.wikipedia.org/wiki/Methods_of_computing_square_roots
 ]]
 function Math.sqrt(n)
 	if Math.isNan(n) then
 		return n
 	end
 	if n < 0 then
-		return 0 / 0
+		return Math.NaN
 	end
-	if n == 0 or n == 1 / 0 then
+	if n == 0 or n == Math.Inf then
 		return n
 	end
-	if n < 2 ^ -1022 then
-		return Math.sqrt(n * 2 ^ 54) / 2 ^ 27
+
+	-- An even exponent keeps e//2 exact. It puts m in [0.5,2), and not in the
+	-- [0.5,1) range that Math.frexp gives.
+	local m, e = Math.frexp(n)
+	if e % 2 ~= 0 then
+		m *= 2
+		e -= 1
 	end
 
-	local scratch = buffer.create(8)
-	buffer.writef64(scratch, 0, n)
-	local i = buffer.readu32(scratch, 4)
-	buffer.writeu32(scratch, 4, 0x5FE6EB50 - bit32.rshift(i, 1))
-	local y = buffer.readf64(scratch, 0)
+	-- The seed is the minimax quadratic fit of 1/√m on [0.5,2). Its relative
+	-- error is at most 2.5×10⁻². See calculate-constants.py.
+	local y = 1.88856581 + m * (-1.16154897 + m * 0.28966061)
+	-- Each Newton step for 1/√m squares the relative error, so four steps bring
+	-- it to 4×10⁻¹⁶.
 	for _ = 1, 4 do
-		y = y * (1.5 - 0.5 * n * y * y)
+		y = y * (1.5 - 0.5 * m * y * y)
 	end
-	return 1 / y
+
+	-- m*y is √m. The last step is Newton for √m, and not for 1/√m, because the
+	-- reciprocal form cannot remove the error of the multiplication by m.
+	local r = m * y
+	r = 0.5 * (r + m / r)
+
+	return r * 2 ^ (e // 2)
 end
 --[[
 $\sum_{i=a}^{b} f(i) = r$
@@ -337,7 +364,7 @@ function Math.atan2(y, x)
 
 	if y == 0 then
 		if m == 0 or m == 1 then
-			return y 
+			return y
 		elseif m == 2 then
 			return Math.Pi
 		else
@@ -436,15 +463,21 @@ function Math.frexp(n)
 		e = -54
 	end
 
-	local guess = math.floor(math.log(math.abs(n), 2)) + 1
-	local m = n / 2 ^ guess
+	-- This calls math.log, and not Math.log. Math.log calls this function, so a
+	-- call in that direction makes infinite recursion.
+	local guess = math.floor(math.log(Math.abs(n), 2)) + 1
+	-- The scale is a multiplication by 2^-guess, and not a division by 2^guess.
+	-- guess is 1024 for the largest inputs, and 2^1024 is infinite, which makes
+	-- m zero and stops the loops below from ever terminating. 2^-1024 is a
+	-- subnormal power of two, so the multiplication stays exact.
+	local m = n * 2 ^ -guess
 	e += guess
 
-	while math.abs(m) >= 1 do
+	while Math.abs(m) >= 1 do
 		m /= 2
 		e += 1
 	end
-	while math.abs(m) < 0.5 do
+	while Math.abs(m) < 0.5 do
 		m *= 2
 		e -= 1
 	end
@@ -452,8 +485,135 @@ function Math.frexp(n)
 	return m, e
 end
 
+local ln2hi = 6.93147180369123816490e-01
+local ln2lo = 1.90821492927058770002e-10
+
+local lg = {
+	6.666666666666735130e-01,
+	3.999999999940941908e-01,
+	2.857142874366239149e-01,
+	2.222219843214978396e-01,
+	1.818357216161805012e-01,
+	1.531383769920937332e-01,
+	1.479819860511658591e-01,
+}
+
+--[[
+$\ln(n)=r$
+ln(n)=r
+The relative error is at most 3×10⁻¹⁶ for positive, finite IEEE-754 doubles.
+The function returns -inf for 0, and NaN for a negative n. ln2 is in two parts,
+because one double cannot hold it.
+https://netlib.org/fdlibm/e_log.c
+]]
+function Math.log(n)
+	if Math.isNan(n) then
+		return n
+	end
+	-- This test is before the test for infinity, because -inf gives NaN here.
+	if n < 0 then
+		return Math.NaN
+	end
+	if n == 0 then
+		return -Math.Inf
+	end
+	if Math.isInf(n) then
+		return n
+	end
+
+	-- The mantissa goes to [√2/2,√2), which keeps f small and symmetric.
+	local m, e = Math.frexp(n)
+	if m < Math.Sqrt2 / 2 then
+		m *= 2
+		e -= 1
+	end
+
+	local f = m - 1
+	local s = f / (2 + f)
+	local z = s * s
+	local w = z * z
+	local t1 = z * (lg[1] + w * (lg[3] + w * (lg[5] + w * lg[7])))
+	local t2 = w * (lg[2] + w * (lg[4] + w * lg[6]))
+	local p = t1 + t2
+	local hfsq = 0.5 * f * f
+	return e * ln2hi - ((hfsq - (s * (hfsq + p) + e * ln2lo)) - f)
+end
+
+--[[
+$\ln(1+n)=r$
+ln(1+n)=r
+The relative error is at most 3×10⁻¹⁶ for n>-1. The function returns -inf for
+n=-1, and NaN for n<-1. Math.log(1 + n) loses the low bits of a small n,
+because the addition rounds them away. The quotient below puts them back.
+https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html
+]]
+function Math.log1p(n)
+	if Math.isNan(n) or n == Math.Inf then
+		return n
+	end
+
+	local u = 1 + n
+	if u == 1 then
+		-- The addition rounds to 1, so n is the result to the last bit.
+		return n
+	end
+
+	-- The quotient n/(u-1) is near 1, so it cannot overflow. The other grouping,
+	-- Math.log(u) * n / (u - 1), multiplies two large values first, and it gives
+	-- infinity for the largest inputs.
+	return Math.log(u) * (n / (u - 1))
+end
+
+--[[
+$\operatorname{artanh}(n)=\frac{1}{2}\ln\frac{1+n}{1-n}$
+artanh(n)=½ln((1+n)/(1-n))
+The relative error is at most 3×10⁻¹⁶ for |n|<1. The function returns ±inf for
+n=±1, and NaN for |n|>1.
+https://netlib.org/fdlibm/e_atanh.c
+]]
+function Math.atanh(n)
+	if Math.isNan(n) then
+		return n
+	end
+
+	local a = Math.abs(n)
+	if a > 1 then
+		return Math.NaN
+	end
+	if a == 1 then
+		return n / 0
+	end
+	if a < tiny then
+		-- artanh(n) is n + n³/3 + ..., and the cubic term is below half of the
+		-- last bit of n here. tiny is 2^-27, where fdlibm uses 2^-28. Both are
+		-- small enough, and this module already has the one.
+		return n
+	end
+
+	-- Both branches give the same value. The first one keeps accuracy for a
+	-- small a, where 2a/(1-a) loses the low bits.
+	local r
+	if a < 0.5 then
+		local t = a + a
+		r = 0.5 * Math.log1p(t + t * a / (1 - a))
+	else
+		r = 0.5 * Math.log1p((a + a) / (1 - a))
+	end
+
+	if n < 0 then
+		return -r
+	end
+	return r
+end
+
+--[[
+$\operatorname{lerp}(a,b,t)=a+t(b-a)$
+lerp(a,b,t)=a+t(b-a)
+The function does not limit t to [0,1]. A value outside that range extrapolates.
+https://en.wikipedia.org/wiki/Linear_interpolation
+]]
 function Math.lerp(a, b, t)
-    return a + t * (b - a)
+	return a + t * (b - a)
 end
 
 --[[
